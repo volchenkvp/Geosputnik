@@ -1,52 +1,109 @@
 <!DOCTYPE html>
-<html>
+<html lang="ru">
 <head>
   <meta charset="utf-8" />
   <title>GeoСпутник</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="manifest" href="manifest.json" />
-  <link
-    rel="stylesheet"
-    href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css"
-  />
-  <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet-measure/dist/leaflet-measure.css" />
   <style>
-    html, body, #map {
-      height: 100%;
-      margin: 0;
+    html, body, #map { height: 100%; margin: 0; padding: 0; }
+    .leaflet-top.leaflet-left { top: 70px !important; } /* Чуть опустить кнопки */
+    .custom-button {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      z-index: 1000;
+      background: white;
+      padding: 5px 10px;
+      border-radius: 6px;
+      font-size: 14px;
+      cursor: pointer;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
     }
   </style>
 </head>
 <body>
   <div id="map"></div>
-  <script>
-    const map = L.map("map").fitWorld();
+  <div class="custom-button" onclick="locateMe()">Где я?</div>
 
-    // Добавляем Yandex Hybrid слой через openstreetmap-fr proxy
-    const yandex = L.tileLayer(
+  <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/leaflet-measure/dist/leaflet-measure.js"></script>
+  <script src="https://unpkg.com/@tmcw/togeojson"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.7.6/proj4.js"></script>
+
+  <script>
+    const map = L.map('map').setView([46.758, 36.786], 10); // fallback: Бердянск
+
+    const yandexHybrid = L.tileLayer(
       "https://core-renderer-tiles.maps.yandex.net/tiles?l=sat&v=21.03.12-0&x={x}&y={y}&z={z}&scale=1&lang=ru_RU",
-      {
-        attribution: "&copy; Яндекс",
-        maxZoom: 19
-      }
+      { maxZoom: 19, attribution: "&copy; Яндекс" }
     ).addTo(map);
 
-    // Центрируем на текущем местоположении
-    map.locate({ setView: true, maxZoom: 16 });
+    // Кнопка "Где я"
+    function locateMe() {
+      map.locate({ setView: true, maxZoom: 16 });
+    }
 
-    // Отметка текущего местоположения
-    function onLocationFound(e) {
+    // GPS-маркер
+    map.on("locationfound", function (e) {
       L.marker(e.latlng).addTo(map).bindPopup("Ты здесь").openPopup();
-    }
+    });
+    map.on("locationerror", function (e) {
+      alert("Ошибка геолокации: " + e.message);
+    });
 
-    map.on("locationfound", onLocationFound);
+    // Линейка
+    L.control.measure({
+      primaryLengthUnit: 'meters',
+      secondaryLengthUnit: 'kilometers',
+      position: 'topright'
+    }).addTo(map);
 
-    // Ошибка при определении местоположения
-    function onLocationError(e) {
-      alert(e.message);
-    }
+    // Импорт GPX/KML
+    map.on("dragover", function (e) {
+      e.preventDefault();
+    });
+    map.on("drop", function (e) {
+      e.preventDefault();
+      const file = e.dataTransfer.files[0];
+      const reader = new FileReader();
+      reader.onload = function () {
+        const ext = file.name.split('.').pop().toLowerCase();
+        let geojson = null;
+        if (ext === 'kml') {
+          const kml = new DOMParser().parseFromString(reader.result, 'text/xml');
+          geojson = toGeoJSON.kml(kml);
+        } else if (ext === 'gpx') {
+          const gpx = new DOMParser().parseFromString(reader.result, 'text/xml');
+          geojson = toGeoJSON.gpx(gpx);
+        }
+        if (geojson) {
+          L.geoJSON(geojson).addTo(map);
+        } else {
+          alert("Формат файла не распознан.");
+        }
+      };
+      reader.readAsText(file);
+    });
 
-    map.on("locationerror", onLocationError);
+    // СК-42 (пример пересчёта)
+    proj4.defs("SK42", "+proj=longlat +ellps=krass +towgs84=23,-141,-80,0,0,0,0 +no_defs");
+    map.on("click", function (e) {
+      const wgs = [e.latlng.lng, e.latlng.lat];
+      const sk42 = proj4("WGS84", "SK42", wgs);
+      console.log("СК-42:", sk42);
+    });
+
+    // (опционально) Подключение линии фронта
+    fetch("frontline.geojson")
+      .then(res => res.json())
+      .then(data => {
+        L.geoJSON(data, { style: { color: 'red', weight: 2, dashArray: '5,5' } }).addTo(map);
+      }).catch(() => {
+        console.log("Нет файла линии фронта (frontline.geojson)");
+      });
   </script>
 </body>
 </html>
