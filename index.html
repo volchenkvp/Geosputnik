@@ -1,8 +1,9 @@
+
 <!DOCTYPE html>
 <html lang="ru">
 <head>
   <meta charset="utf-8" />
-  <title>GeoСпутник — Расширенная версия</title>
+  <title>GeoСпутник — С названиями поселений</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="manifest" href="manifest.json" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css" />
@@ -22,6 +23,12 @@
       cursor: pointer;
       box-shadow: 0 2px 6px rgba(0,0,0,0.3);
     }
+    .village-label {
+      font-size: 12px;
+      font-weight: bold;
+      color: white;
+      text-shadow: 0 0 3px black;
+    }
   </style>
 </head>
 <body>
@@ -32,7 +39,7 @@
   <script src="https://unpkg.com/leaflet-measure/dist/leaflet-measure.js"></script>
   <script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
   <script>
-    const map = L.map('map').setView([46.758, 36.786], 10);
+    const map = L.map('map').setView([46.758, 36.786], 9);
 
     const satellite = L.tileLayer(
       "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
@@ -62,23 +69,33 @@
       alert("Ошибка геолокации: " + e.message);
     });
 
-    // Линейка
     L.control.measure({
       primaryLengthUnit: 'meters',
       secondaryLengthUnit: 'kilometers',
       position: 'topright'
     }).addTo(map);
 
-    // Поиск по названию
     L.Control.geocoder().addTo(map);
 
-    // Добавление меток вручную
-    map.on('contextmenu', function(e) {
-      const marker = L.marker(e.latlng, { draggable: true }).addTo(map);
-      marker.bindPopup("Метка: " + e.latlng.toString()).openPopup();
-    });
+    // Загрузка названий населённых пунктов
+    fetch("settlements.geojson")
+      .then(res => res.json())
+      .then(data => {
+        L.geoJSON(data, {
+          onEachFeature: function (feature, layer) {
+            const name = feature.properties.name;
+            const latlng = layer.getLatLng();
+            const label = L.divIcon({
+              className: 'village-label',
+              html: name,
+              iconSize: [100, 20],
+              iconAnchor: [50, 10]
+            });
+            L.marker(latlng, { icon: label, interactive: false }).addTo(map);
+          }
+        });
+      });
 
-    // Импорт GeoJSON с линией соприкосновения
     fetch("frontline.geojson")
       .then(res => res.json())
       .then(data => {
@@ -86,38 +103,6 @@
           style: { color: 'red', weight: 3, dashArray: '5,5' }
         }).addTo(map);
       });
-
-    // Экспорт меток
-    window.exportMarkers = function () {
-      const features = [];
-      map.eachLayer(layer => {
-        if (layer instanceof L.Marker) {
-          features.push({
-            type: "Feature",
-            geometry: {
-              type: "Point",
-              coordinates: [layer.getLatLng().lng, layer.getLatLng().lat]
-            }
-          });
-        }
-      });
-      const geojson = {
-        type: "FeatureCollection",
-        features: features
-      };
-      const blob = new Blob([JSON.stringify(geojson)], { type: "application/json" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = "markers.geojson";
-      a.click();
-      URL.revokeObjectURL(url);
-    }
-
-    // Горячая клавиша для экспорта: "e"
-    document.addEventListener("keydown", function (e) {
-      if (e.key === "e") exportMarkers();
-    });
   </script>
 </body>
 </html>
