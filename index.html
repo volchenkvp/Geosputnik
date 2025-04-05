@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
   <meta charset="utf-8" />
-  <title>GeoСпутник</title>
+  <title>GeoСпутник — Спутниковая карта</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="manifest" href="manifest.json" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css" />
@@ -15,7 +15,7 @@
       left: 10px;
       z-index: 1000;
       background: white;
-      padding: 5px 10px;
+      padding: 6px 12px;
       border-radius: 6px;
       font-size: 14px;
       cursor: pointer;
@@ -29,30 +29,39 @@
 
   <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
   <script src="https://unpkg.com/leaflet-measure/dist/leaflet-measure.js"></script>
-  <script src="https://unpkg.com/@tmcw/togeojson"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.7.6/proj4.js"></script>
-
   <script>
+    // Инициализация карты
     const map = L.map('map').setView([46.758, 36.786], 10); // fallback: Бердянск
 
-    // OpenStreetMap слой (вместо Яндекса)
-    const osmLayer = L.tileLayer(
-      "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+    // Спутниковый слой MapTiler (замени ключ ниже)
+    const satellite = L.tileLayer(
+      'https://api.maptiler.com/tiles/satellite/{z}/{x}/{y}.jpg?key=Get_Your_Free_Key',
       {
-        maxZoom: 19,
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        tileSize: 512,
+        zoomOffset: -1,
+        attribution: '&copy; <a href="https://www.maptiler.com/">MapTiler</a>'
       }
     ).addTo(map);
 
-    // Кнопка "Где я"
+    // Подписи из OpenStreetMap (полупрозрачные)
+    const labels = L.tileLayer(
+      "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+      {
+        opacity: 0.4,
+        attribution: '&copy; OpenStreetMap contributors'
+      }
+    ).addTo(map);
+
+    // Кнопка: найти себя
     function locateMe() {
       map.locate({ setView: true, maxZoom: 16 });
     }
 
-    // GPS-маркер
+    // Метка на карте после определения позиции
     map.on("locationfound", function (e) {
       L.marker(e.latlng).addTo(map).bindPopup("Ты здесь").openPopup();
     });
+
     map.on("locationerror", function (e) {
       alert("Ошибка геолокации: " + e.message);
     });
@@ -63,50 +72,6 @@
       secondaryLengthUnit: 'kilometers',
       position: 'topright'
     }).addTo(map);
-
-    // Импорт GPX/KML
-    map.on("dragover", function (e) {
-      e.preventDefault();
-    });
-    map.on("drop", function (e) {
-      e.preventDefault();
-      const file = e.dataTransfer.files[0];
-      const reader = new FileReader();
-      reader.onload = function () {
-        const ext = file.name.split('.').pop().toLowerCase();
-        let geojson = null;
-        if (ext === 'kml') {
-          const kml = new DOMParser().parseFromString(reader.result, 'text/xml');
-          geojson = toGeoJSON.kml(kml);
-        } else if (ext === 'gpx') {
-          const gpx = new DOMParser().parseFromString(reader.result, 'text/xml');
-          geojson = toGeoJSON.gpx(gpx);
-        }
-        if (geojson) {
-          L.geoJSON(geojson).addTo(map);
-        } else {
-          alert("Формат файла не распознан.");
-        }
-      };
-      reader.readAsText(file);
-    });
-
-    // СК-42 пересчёт (консоль)
-    proj4.defs("SK42", "+proj=longlat +ellps=krass +towgs84=23,-141,-80,0,0,0,0 +no_defs");
-    map.on("click", function (e) {
-      const wgs = [e.latlng.lng, e.latlng.lat];
-      const sk42 = proj4("WGS84", "SK42", wgs);
-      console.log("СК-42:", sk42);
-    });
-
-    // Линия фронта (если есть файл)
-    fetch("frontline.geojson")
-      .then(res => res.json())
-      .then(data => {
-        L.geoJSON(data, { style: { color: 'red', weight: 2, dashArray: '5,5' } }).addTo(map);
-      }).catch(() => {
-        console.log("Нет файла линии фронта (frontline.geojson)");
-      });
   </script>
 </body>
 </html>
