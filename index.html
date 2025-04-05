@@ -1,21 +1,52 @@
-
 <!DOCTYPE html>
 <html>
 <head>
-    <title>GeoСпутник v1</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="manifest" href="manifest.json">
+  <meta charset="utf-8" />
+  <title>GeoСпутник</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="manifest" href="manifest.json" />
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css"
+  />
+  <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
+  <style>
+    html, body, #map {
+      height: 100%;
+      margin: 0;
+    }
+  </style>
 </head>
 <body>
-    <h1>Добро пожаловать в GeoСпутник!</h1>
-    <p>Здесь будет карта с GPS, компасом и треками.</p>
-    <script>
-        // Пример подключения PWA
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('sw.js').then(function(reg) {
-                console.log("SW зарегистрирован", reg);
-            });
-        }
-    </script>
+  <div id="map"></div>
+  <script>
+    const map = L.map("map").fitWorld();
+
+    // Добавляем Yandex Hybrid слой через openstreetmap-fr proxy
+    const yandex = L.tileLayer(
+      "https://core-renderer-tiles.maps.yandex.net/tiles?l=sat&v=21.03.12-0&x={x}&y={y}&z={z}&scale=1&lang=ru_RU",
+      {
+        attribution: "&copy; Яндекс",
+        maxZoom: 19
+      }
+    ).addTo(map);
+
+    // Центрируем на текущем местоположении
+    map.locate({ setView: true, maxZoom: 16 });
+
+    // Отметка текущего местоположения
+    function onLocationFound(e) {
+      L.marker(e.latlng).addTo(map).bindPopup("Ты здесь").openPopup();
+    }
+
+    map.on("locationfound", onLocationFound);
+
+    // Ошибка при определении местоположения
+    function onLocationError(e) {
+      alert(e.message);
+    }
+
+    map.on("locationerror", onLocationError);
+  </script>
 </body>
 </html>
