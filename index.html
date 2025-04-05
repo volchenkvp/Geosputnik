@@ -9,7 +9,6 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet-measure/dist/leaflet-measure.css" />
   <style>
     html, body, #map { height: 100%; margin: 0; padding: 0; }
-    .leaflet-top.leaflet-left { top: 70px !important; } /* Чуть опустить кнопки */
     .custom-button {
       position: absolute;
       top: 10px;
@@ -36,9 +35,13 @@
   <script>
     const map = L.map('map').setView([46.758, 36.786], 10); // fallback: Бердянск
 
-    const yandexHybrid = L.tileLayer(
-      "https://core-renderer-tiles.maps.yandex.net/tiles?l=sat&v=21.03.12-0&x={x}&y={y}&z={z}&scale=1&lang=ru_RU",
-      { maxZoom: 19, attribution: "&copy; Яндекс" }
+    // OpenStreetMap слой (вместо Яндекса)
+    const osmLayer = L.tileLayer(
+      "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+      {
+        maxZoom: 19,
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+      }
     ).addTo(map);
 
     // Кнопка "Где я"
@@ -88,7 +91,7 @@
       reader.readAsText(file);
     });
 
-    // СК-42 (пример пересчёта)
+    // СК-42 пересчёт (консоль)
     proj4.defs("SK42", "+proj=longlat +ellps=krass +towgs84=23,-141,-80,0,0,0,0 +no_defs");
     map.on("click", function (e) {
       const wgs = [e.latlng.lng, e.latlng.lat];
@@ -96,7 +99,7 @@
       console.log("СК-42:", sk42);
     });
 
-    // (опционально) Подключение линии фронта
+    // Линия фронта (если есть файл)
     fetch("frontline.geojson")
       .then(res => res.json())
       .then(data => {
