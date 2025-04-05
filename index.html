@@ -2,11 +2,12 @@
 <html lang="ru">
 <head>
   <meta charset="utf-8" />
-  <title>GeoСпутник — Спутниковая карта</title>
+  <title>GeoСпутник — Расширенная версия</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="manifest" href="manifest.json" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet-measure/dist/leaflet-measure.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.css" />
   <style>
     html, body, #map { height: 100%; margin: 0; padding: 0; }
     .custom-button {
@@ -29,10 +30,10 @@
 
   <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
   <script src="https://unpkg.com/leaflet-measure/dist/leaflet-measure.js"></script>
+  <script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
   <script>
-    const map = L.map('map').setView([46.758, 36.786], 10); // fallback: Бердянск
+    const map = L.map('map').setView([46.758, 36.786], 10);
 
-    // Спутниковый слой ESRI
     const satellite = L.tileLayer(
       "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
       {
@@ -41,7 +42,6 @@
       }
     ).addTo(map);
 
-    // Подписи населённых пунктов (OSM France — местами на русском)
     const labels = L.tileLayer(
       "https://tile.openstreetmap.fr/osmfr/{z}/{x}/{y}.png",
       {
@@ -50,12 +50,10 @@
       }
     ).addTo(map);
 
-    // Кнопка: найти себя
     function locateMe() {
       map.locate({ setView: true, maxZoom: 16 });
     }
 
-    // Отображение метки после определения позиции
     map.on("locationfound", function (e) {
       L.marker(e.latlng).addTo(map).bindPopup("Ты здесь").openPopup();
     });
@@ -70,6 +68,56 @@
       secondaryLengthUnit: 'kilometers',
       position: 'topright'
     }).addTo(map);
+
+    // Поиск по названию
+    L.Control.geocoder().addTo(map);
+
+    // Добавление меток вручную
+    map.on('contextmenu', function(e) {
+      const marker = L.marker(e.latlng, { draggable: true }).addTo(map);
+      marker.bindPopup("Метка: " + e.latlng.toString()).openPopup();
+    });
+
+    // Импорт GeoJSON с линией соприкосновения
+    fetch("frontline.geojson")
+      .then(res => res.json())
+      .then(data => {
+        L.geoJSON(data, {
+          style: { color: 'red', weight: 3, dashArray: '5,5' }
+        }).addTo(map);
+      });
+
+    // Экспорт меток
+    window.exportMarkers = function () {
+      const features = [];
+      map.eachLayer(layer => {
+        if (layer instanceof L.Marker) {
+          features.push({
+            type: "Feature",
+            geometry: {
+              type: "Point",
+              coordinates: [layer.getLatLng().lng, layer.getLatLng().lat]
+            }
+          });
+        }
+      });
+      const geojson = {
+        type: "FeatureCollection",
+        features: features
+      };
+      const blob = new Blob([JSON.stringify(geojson)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "markers.geojson";
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    // Горячая клавиша для экспорта: "e"
+    document.addEventListener("keydown", function (e) {
+      if (e.key === "e") exportMarkers();
+    });
   </script>
 </body>
 </html>

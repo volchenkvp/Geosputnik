@@ -1,1 +1,1 @@
-// Service Worker заглушка
+// service worker
