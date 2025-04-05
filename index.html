@@ -32,7 +32,7 @@
   <script>
     const map = L.map('map').setView([46.758, 36.786], 10); // fallback: Бердянск
 
-    // Спутниковый слой ESRI (без ключей)
+    // Спутниковый слой ESRI
     const satellite = L.tileLayer(
       "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
       {
@@ -41,19 +41,21 @@
       }
     ).addTo(map);
 
-    // Прозрачные подписи OpenStreetMap
+    // Подписи населённых пунктов (OSM France — местами на русском)
     const labels = L.tileLayer(
-      "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+      "https://tile.openstreetmap.fr/osmfr/{z}/{x}/{y}.png",
       {
-        opacity: 0.4,
-        attribution: "&copy; OpenStreetMap contributors"
+        opacity: 0.6,
+        attribution: "&copy; OSM France"
       }
     ).addTo(map);
 
+    // Кнопка: найти себя
     function locateMe() {
       map.locate({ setView: true, maxZoom: 16 });
     }
 
+    // Отображение метки после определения позиции
     map.on("locationfound", function (e) {
       L.marker(e.latlng).addTo(map).bindPopup("Ты здесь").openPopup();
     });
@@ -62,6 +64,7 @@
       alert("Ошибка геолокации: " + e.message);
     });
 
+    // Линейка
     L.control.measure({
       primaryLengthUnit: 'meters',
       secondaryLengthUnit: 'kilometers',
